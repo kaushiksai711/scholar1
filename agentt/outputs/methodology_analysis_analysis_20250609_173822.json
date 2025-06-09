@@ -1,0 +1,38 @@
+{
+  "task": "compare_methodologies",
+  "timestamp": "2025-06-09T17:38:22.099809",
+  "document_ids": [
+    1,
+    2
+  ],
+  "document_names": [
+    "AgroPlanner - Machine Learning and Neural Network-Driven Precision in Crop Yield Prediction a (1).pdf",
+    "life-13-00576 (1).pdf"
+  ],
+  "documents": {
+    "AgroPlanner - Machine Learning and Neural Network-Driven Precision in Crop Yield Prediction a (1).pdf": "AgroPlanner: Machine Learning and Neural\nNetwork-Driven Precision in Crop Yield\nPrediction and Resource Optimization\nMamta Thakur1, Nikhil G2, Harsha Adithya G2, Kaushik Sai M2, and Umesh\nKrishna T2\n1Asst Professor, Dept. of Mathematics, Chaitanya Bharathi Institute of Technology,\nHyderabad, India\nmamtathakur_maths@cbit.ac.in\n2Student, Dept. of Computer Science and Engineering, Chaitanya Bharathi Institute\nof Technology, Hyderabad, India\n{nikhillallu7, harshaadithyagorre, Umeshkrishnatutari,\nkau...",
+    "life-13-00576 (1).pdf": "Citation: Sakharkar, A.; Yang, J.\nDesigning a Novel Monitoring\nApproach for the Effects of Space\nTravel on Astronauts’ Health. Life\n2023 ,13, 576. https://doi.org/\n10.3390/life13020576\nAcademic Editors: Claudia Pacelli,\nFrancesca Ferranti and Marta del\nBianco\nReceived: 9 January 2023\nRevised: 2 February 2023\nAccepted: 6 February 2023\nPublished: 18 February 2023\nCopyright: © 2023 by the authors.\nLicensee MDPI, Basel, Switzerland.\nThis article is an open access article\ndistributed under the terms ..."
+  },
+  "keywords": {
+    "AgroPlanner - Machine Learning and Neural Network-Driven Precision in Crop Yield Prediction a (1).pdf": [
+      "crop",
+      "yield",
+      "farmers",
+      "learning"
+    ],
+    "life-13-00576 (1).pdf": [
+      "gene",
+      "space",
+      "ﬂight",
+      "genes",
+      "astronauts",
+      "crossref",
+      "expression",
+      "pre",
+      "03",
+      "creb1"
+    ]
+  },
+  "topics": [],
+  "status": "success"
+}
