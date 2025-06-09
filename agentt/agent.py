@@ -1,5 +1,5 @@
 # scholar_verse_agents.py - Comprehensive agent implementation for ScholarVerse
-from datetime import datetime
+
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.decomposition import LatentDirichletAllocation
@@ -10,7 +10,6 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.stem import WordNetLemmatizer
-import types
 
 # Download required NLTK data
 nltk.download('punkt', quiet=True)
@@ -443,71 +442,45 @@ async def _process_documents_for_analysis(
     task_name: str,
     analysis_type: str
 ) -> Dict:
-    """Helper function to process 10-20 documents for topic analysis using TF-IDF and LLM."""
+    """Process 2-50 documents for topic analysis using LDA and semantic embeddings."""
     try:
         logger.info(f"Starting document processing for task: {task_name}")
         
-        # Parse the comma-separated string and clean up
+        # Parse document IDs
         doc_ids = [id_str.strip() for id_str in document_ids.split(',') if id_str.strip()]
         logger.info(f"Processing document IDs: {doc_ids}")
         
         if len(doc_ids) < 2:
-            error_msg = "Need at least two document IDs to compare"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-        
-        if len(doc_ids) > 20:
-            error_msg = "Exceeds maximum of 20 documents for topic analysis"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
+            return {"status": "error", "message": "Need at least two document IDs to compare"}
+        if len(doc_ids) > 50:
+            return {"status": "error", "message": "Exceeds maximum of 50 documents for topic analysis"}
 
-        # Load the directory index
+        # Load directory index (unchanged)
         try:
-            logger.info("Attempting to load pdf_directory_index artifact")
             artifact = tool_context.load_artifact("pdf_directory_index")
-            
             if not artifact or not hasattr(artifact, 'inline_data') or not artifact.inline_data:
-                error_msg = "Failed to load pdf_directory_index: invalid artifact format"
-                logger.error(error_msg)
-                return {"status": "error", "message": error_msg}
+                return {"status": "error", "message": "Failed to load pdf_directory_index: invalid artifact format"}
             
             raw_data = artifact.inline_data.data
             if isinstance(raw_data, bytes):
-                try:
-                    raw_data = raw_data.decode('utf-8')
-                except UnicodeDecodeError as e:
-                    error_msg = f"Failed to decode pdf_directory_index: {str(e)}"
-                    logger.error(error_msg)
-                    return {"status": "error", "message": error_msg}
+                raw_data = raw_data.decode('utf-8')
             
-            try:
-                index_data = json.loads(raw_data)
-                logger.info(f"Successfully loaded pdf_directory_index with {len(index_data.get('documents', {}))} documents")
-            except json.JSONDecodeError as e:
-                error_msg = f"Failed to parse pdf_directory_index JSON: {str(e)}"
-                logger.error(error_msg)
-                return {"status": "error", "message": error_msg}
-            
+            index_data = json.loads(raw_data)
+            logger.info(f"Loaded pdf_directory_index with {len(index_data.get('documents', {}))} documents")
         except Exception as e:
-            error_msg = f"Could not load pdf_directory_index: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            return {"status": "error", "message": error_msg}
+            return {"status": "error", "message": f"Could not load pdf_directory_index: {str(e)}"}
 
-        # Map document IDs to artifact names
+        # Map document IDs to artifact names (unchanged)
         artifact_names = []
         documents = index_data.get('documents', {})
-        
         for doc_id in doc_ids:
             found = False
             for artifact_name, data in documents.items():
                 if not isinstance(data, dict):
-                    logger.warning(f"Unexpected data format in index for {artifact_name}: {data}")
                     continue
-                
                 if (str(data.get('doc_id')) == doc_id or 
                     artifact_name == doc_id or 
                     data.get('text_artifact', '').startswith(doc_id)):
-                    
                     text_artifact = data.get('text_artifact', f"{os.path.splitext(artifact_name)[0]}_text")
                     artifact_names.append({
                         'pdf_artifact': artifact_name,
@@ -515,54 +488,31 @@ async def _process_documents_for_analysis(
                         'doc_id': data.get('doc_id')
                     })
                     found = True
-                    logger.info(f"Mapped document ID {doc_id} to artifact: {artifact_name} (text: {text_artifact})")
+                    logger.info(f"Mapped document ID {doc_id} to artifact: {artifact_name}")
                     break
-                    
             if not found:
-                available_docs = [{
-                    'doc_id': d.get('doc_id'),
-                    'artifact': k,
-                    'text_artifact': d.get('text_artifact', f"{os.path.splitext(k)[0]}_text")
-                } for k, d in documents.items() if isinstance(d, dict)]
-                error_msg = (
-                    f"Document with ID {doc_id} not found in index. "
-                    f"Available documents: {json.dumps(available_docs, indent=2)}"
-                )
-                logger.error(error_msg)
-                return {"status": "error", "message": error_msg}
+                return {"status": "error", "message": f"Document with ID {doc_id} not found in index"}
 
-        # Process documents and load their text content
+        # Load document texts (unchanged)
         documents_text = {}
         for doc_info in artifact_names:
             artifact_name = doc_info['pdf_artifact']
             text_artifact_name = doc_info['text_artifact']
-            
             try:
                 artifact = tool_context.load_artifact(text_artifact_name)
                 if not artifact or not hasattr(artifact, 'inline_data'):
-                    logger.warning(f"Text artifact {text_artifact_name} is invalid or missing inline_data")
                     documents_text[artifact_name] = "[Error: Invalid text artifact]"
                     continue
-                
                 content = artifact.inline_data.data
                 if isinstance(content, bytes):
-                    try:
-                        content = content.decode('utf-8')
-                        if content.strip().startswith('{'):
-                            try:
-                                text_data = json.loads(content)
-                                if isinstance(text_data, dict) and 'text' in text_data:
-                                    content = text_data['text']
-                            except json.JSONDecodeError:
-                                pass
-                    except UnicodeDecodeError:
-                        content = f"[Error: Cannot decode text artifact {text_artifact_name}]"
-                
+                    content = content.decode('utf-8')
+                    if content.strip().startswith('{'):
+                        text_data = json.loads(content)
+                        if isinstance(text_data, dict) and 'text' in text_data:
+                            content = text_data['text']
                 documents_text[artifact_name] = content
-                logger.info(f"Successfully loaded text for {artifact_name} from {text_artifact_name}")
-                
+                logger.info(f"Loaded text for {artifact_name}")
             except Exception as e:
-                logger.warning(f"Could not load text artifact {text_artifact_name}: {str(e)}")
                 try:
                     pdf_artifact = tool_context.load_artifact(artifact_name)
                     pdf_bytes = pdf_artifact.inline_data.data
@@ -572,138 +522,153 @@ async def _process_documents_for_analysis(
                         reader = PyPDF2.PdfReader(f)
                         text = "\n\n".join(page.extract_text() for page in reader.pages if page.extract_text())
                     os.remove("temp_pdf.pdf")
-                    
                     text_artifact_data = json.dumps({
                         "text": text,
                         "source_pdf": artifact_name,
                         "extracted_at": datetime.now().isoformat(),
                         "extraction_method": "fallback_pdf_extraction"
                     }).encode('utf-8')
-                    
-                    text_artifact = Part(
-                        inline_data=Blob(
-                            mime_type="application/json",
-                            data=text_artifact_data
-                        )
-                    )
+                    text_artifact = Part(inline_data=Blob(mime_type="application/json", data=text_artifact_data))
                     tool_context.save_artifact(filename=text_artifact_name, artifact=text_artifact)
                     documents_text[artifact_name] = text
-                    logger.info(f"Successfully extracted and saved text for {artifact_name}")
-                    
+                    logger.info(f"Extracted and saved text for {artifact_name}")
                 except Exception as inner_e:
-                    error_msg = f"Failed to process {artifact_name}: {str(inner_e)}"
-                    logger.error(error_msg, exc_info=True)
                     documents_text[artifact_name] = f"[Error processing document: {str(inner_e)}]"
 
-        # Extract keywords using TF-IDF
+        # Filter valid documents
         valid_texts = [text for text in documents_text.values() if not text.startswith("[Error")]
         valid_doc_names = [name for name, text in documents_text.items() if not text.startswith("[Error")]
-        
         if len(valid_texts) < 2:
-            error_msg = "Fewer than two valid documents available for topic analysis"
-            logger.error(error_msg)
-            return {"status": "error", "message": error_msg}
-        
-        try:
-            # Calculate min_df and max_df to ensure max_df is always greater than min_df
-            n_docs = len(valid_texts)
-            min_docs = min(2, max(1, int(n_docs * 0.2)))  # At least 1 doc, at most 2 or 20% of docs
-            max_docs = max(min_docs + 1, int(n_docs * 0.8))  # At least min_docs + 1, at most 80% of docs
-            
-            vectorizer = TfidfVectorizer(
-                max_features=50,  # Limit to top 50 keywords
-                stop_words='english',
-                max_df=0.8,  # Ignore terms in >80% of documents
-                min_df=min_docs  # Terms must appear in at least min_docs documents
-            )
-            tfidf_matrix = vectorizer.fit_transform(valid_texts)
-            feature_names = vectorizer.get_feature_names_out()
-            
-            # Extract top keywords per document
-            doc_keywords = {}
-            for i, doc_name in enumerate(valid_doc_names):
-                scores = tfidf_matrix[i].toarray()[0]
-                top_indices = scores.argsort()[-10:][::-1]  # Top 10 keywords
-                doc_keywords[doc_name] = [feature_names[idx] for idx in top_indices if scores[idx] > 0]
-            
-            # Save keywords as an artifact
-            keywords_artifact_name = f"keywords_{analysis_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            keywords_data = {
-                "documents": doc_keywords,
-                "created_at": datetime.now().isoformat()
-            }
-            tool_context.save_artifact(
-                filename=keywords_artifact_name,
-                artifact=Part(inline_data=Blob(mime_type="application/json", data=json.dumps(keywords_data).encode('utf-8')))
-            )
-            logger.info(f"Saved keywords as artifact: {keywords_artifact_name}")
-            
-        except Exception as e:
-            logger.error(f"Error during TF-IDF processing: {str(e)}")
-            return {"status": "error", "message": f"TF-IDF processing failed: {str(e)}"}
+            return {"status": "error", "message": "Fewer than two valid documents available for topic analysis"}
 
-        # Batch processing for LLM
-        batch_size = 5
-        all_topics = []
-        for i in range(0, len(valid_doc_names), batch_size):
-            batch_docs = valid_doc_names[i:i + batch_size]
-            batch_keywords = {doc: doc_keywords[doc] for doc in batch_docs}
-            
-            # Prepare prompt for LLM
-            prompt = (
-                "You are an expert in research paper analysis. Below are keywords extracted from multiple research papers. "
-                "Your task is to identify up to 5 common topics or themes across these papers based on the keywords. "
-                "Each topic should be specific, relevant, and avoid generic terms like 'research' or 'study'. "
-                "Return a JSON object with a 'topics' key containing a list of dictionaries, "
-                "each with 'topic' and 'description' keys.\n\n"
+        # Preprocess texts for NLP
+        stop_words = set(stopwords.words('english'))
+        lemmatizer = WordNetLemmatizer()
+        
+        def preprocess_text(text: str) -> List[str]:
+            sentences = sent_tokenize(text)
+            processed = []
+            for sent in sentences:
+                words = word_tokenize(sent.lower())
+                words = [lemmatizer.lemmatize(w) for w in words if w.isalnum() and w not in stop_words]
+                processed.append(' '.join(words))
+            return processed
+
+        processed_texts = [preprocess_text(text) for text in valid_texts]
+        flat_texts = [' '.join(sentences) for sentences in processed_texts]
+
+        # Topic Modeling with LDA (with dynamic parameters)
+        # Topic Modeling with LDA (further adjusted parameters)
+        n_docs = len(valid_texts)
+        n_topics = min(5, n_docs)  # At most 5 topics, or one per document
+        min_df = 1  # Terms must appear in at least 1 document
+        max_df = n_docs  # Terms can appear in all documents
+
+        try:
+            vectorizer = CountVectorizer(
+                max_df=max_df,
+                min_df=min_df,
+                max_features=500 * n_docs,  # Reduced to avoid overfitting
+                stop_words='english'
             )
-            
-            for doc_name, keywords in batch_keywords.items():
-                prompt += f"### Paper: {doc_name}\nKeywords: {', '.join(keywords)}\n\n"
-            
-            prompt += (
-                "\nBased on the keywords, identify and describe up to 5 common topics. "
-                "Return the result in JSON format:\n"
-                "```json\n"
-                "{\"topics\": [{\"topic\": \"topic_name\", \"description\": \"description\"}, ...]}\n"
-                "```"
-            )
-            
-            # Call the LLM
-            try:
-                llm_response = await tool_context.model.generate_content_async(
-                    contents=[types.Content(role="user", parts=[types.Part(text=prompt)])]
-                )
+            doc_term_matrix = vectorizer.fit_transform(flat_texts)
+            if doc_term_matrix.shape[1] == 0:
+                logger.warning("No terms remain after CountVectorizer filtering. Falling back to semantic embeddings.")
+                common_topics = []
+            else:
+                lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
+                lda.fit(doc_term_matrix)
+                feature_names = vectorizer.get_feature_names_out()
                 
-                if llm_response and llm_response.parts:
-                    try:
-                        response_text = llm_response.parts[0].text
-                        if response_text.startswith("```json"):
-                            response_text = response_text.strip("```json\n").strip("```")
-                        topics_data = json.loads(response_text)
-                        all_topics.extend(topics_data.get("topics", []))
-                        logger.info(f"Successfully extracted topics for batch {i//batch_size + 1}")
-                    except (json.JSONDecodeError, AttributeError) as e:
-                        logger.error(f"Error parsing LLM response for batch {i//batch_size + 1}: {str(e)}")
-                        continue
-                else:
-                    logger.error(f"No valid response from LLM for batch {i//batch_size + 1}")
+                # Extract top words per topic
+                topic_keywords = {}
+                for topic_idx, topic in enumerate(lda.components_):
+                    top_words = [feature_names[i] for i in topic.argsort()[-10:][::-1]]
+                    topic_keywords[f"topic_{topic_idx}"] = top_words
+        except Exception as e:
+            logger.warning(f"LDA failed: {str(e)}. Falling back to semantic embeddings.")
+            topic_keywords = {}
+            common_topics = []
+
+        # Semantic Embeddings with Domain-Specific Model
+        embedder = SentenceTransformer('allenai/specter')  # Better for scientific papers
+        doc_embeddings = embedder.encode(flat_texts, convert_to_tensor=False)
+
+        if not topic_keywords:
+            logger.info("Using semantic embeddings as primary topic identification method.")
+            sentence_embeddings = []
+            sentence_sources = []
+            for doc_idx, sentences in enumerate(processed_texts):
+                for sent in sentences:
+                    if sent.strip():
+                        sentence_embeddings.append(embedder.encode(sent, convert_to_tensor=False))
+                        sentence_sources.append((valid_doc_names[doc_idx], sent))
+            
+            # Clustering with a lower similarity threshold
+            common_topics = []
+            seen_sentences = set()
+            for i, (doc_name, sent) in enumerate(sentence_sources):
+                if sent in seen_sentences:
                     continue
-            except Exception as e:
-                logger.error(f"LLM call failed for batch {i//batch_size + 1}: {str(e)}")
-                continue
-        
-        # Deduplicate and limit topics
-        unique_topics = []
-        seen_topics = set()
-        for topic in all_topics:
-            topic_name = topic.get("topic", "").lower()
-            if topic_name and topic_name not in seen_topics:
-                unique_topics.append(topic)
-                seen_topics.add(topic_name)
-            if len(unique_topics) >= 5:
-                break
-        
+                similar_docs = set()
+                for j, (other_doc_name, _) in enumerate(sentence_sources):
+                    if cosine(sentence_embeddings[i], sentence_embeddings[j]) < 0.25:  # Lowered to 0.25
+                        similar_docs.add(other_doc_name)
+                if len(similar_docs) >= n_docs * 0.3:  # Appears in at least 30% of docs
+                    common_topics.append({
+                        "topic": f"Topic {len(common_topics) + 1}",  # Sequential numbering
+                        "description": f"Theme related to {sent[:100]}... shared across multiple documents.",
+                        "keywords": word_tokenize(sent.lower())[:10]
+                    })
+                    seen_sentences.add(sent)
+            if not common_topics:
+                common_topics = [{"topic": "Topic 1", "description": "No significant shared themes detected.", "keywords": []}]
+        else:
+            # Refine LDA topics with embeddings
+            topic_sentences = [' '.join(words) for words in topic_keywords.values()]
+            topic_embeddings = embedder.encode(topic_sentences, convert_to_tensor=False)
+            doc_topic_scores = []
+            for doc_emb in doc_embeddings:
+                scores = [1 - cosine(doc_emb, topic_emb) for topic_emb in topic_embeddings]
+                doc_topic_scores.append(scores)
+            
+            topic_relevance_threshold = 0.3  # Lowered for inclusivity
+            common_topics = []
+            for topic_idx, scores in enumerate(np.array(doc_topic_scores).T):
+                if sum(score > topic_relevance_threshold for score in scores) >= min(2, n_docs * 0.3):
+                    common_topics.append({
+                        "topic": f"Topic {len(common_topics) + 1}",  # Sequential numbering
+                        "description": f"Theme related to {', '.join(topic_keywords[f'topic_{topic_idx}'][:5])}. "
+                                    f"This topic captures concepts shared across multiple documents.",
+                        "keywords": topic_keywords[f"topic_{topic_idx}"]
+                    })
+            if not common_topics:
+                common_topics = [{"topic": "Topic 1", "description": "No significant shared themes detected.", "keywords": []}]
+
+        # ... (rest of the function remains unchanged)
+
+        # LLM Refinement (optional)
+        # if common_topics and common_topics[0]["topic"] != "No common topics":
+        #     prompt = (
+        #         "You are an expert in research paper analysis. Below are topics identified from multiple research papers with their keywords. "
+        #         "Refine the topic descriptions to be concise, specific, and relevant to the research context, avoiding generic terms. "
+        #         "Return a JSON object with a 'topics' key containing a list of dictionaries with 'topic', 'description', and 'keywords'.\n\n"
+        #     )
+        #     for topic in common_topics:
+        #         prompt += f"### Topic: {topic['topic']}\nKeywords: {', '.join(topic['keywords'])}\nDescription: {topic['description']}\n\n"
+        #     prompt += "```json\n{\"topics\": [{\"topic\": \"topic_name\", \"description\": \"refined_description\", \"keywords\": []}, ...]}\n```"
+            
+        #     try:
+        #         llm_response = await tool_context.model.generate_content_async(
+        #             contents=[types.Content(role="user", parts=[types.Part(text=prompt)])]
+        #         )
+        #         if llm_response and llm_response.parts:
+        #             response_text = llm_response.parts[0].text.strip("```json\n").strip("```")
+        #             refined_topics = json.loads(response_text).get("topics", common_topics)
+        #             common_topics = refined_topics
+        #     except Exception as e:
+        #         logger.warning(f"LLM refinement failed: {str(e)}. Using LDA/embedding-based topics.")
+
         # Save analysis input as artifact
         analysis_input_name = f"{analysis_type}_input_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         result_data = {
@@ -712,36 +677,29 @@ async def _process_documents_for_analysis(
             "document_ids": [doc['doc_id'] for doc in artifact_names],
             "document_names": [doc['pdf_artifact'] for doc in artifact_names],
             "documents": {name: text[:500] + "..." if len(text) > 500 else text for name, text in documents_text.items()},
-            "keywords": doc_keywords,
-            "topics": unique_topics,
+            "topics": common_topics,
             "status": "success"
         }
         tool_context.save_artifact(
             filename=analysis_input_name,
             artifact=Part(inline_data=Blob(mime_type="application/json", data=json.dumps(result_data).encode('utf-8')))
         )
-        
-        # Save results to file
-        output_file = save_analysis_output(f"{analysis_type}_analysis", result_data)
-        
+
         # Prepare response
         response = {
             "status": "success",
-            "message": f"Identified common topics across {len(valid_doc_names)} documents",
+            "message": f"Identified {len(common_topics)} common topics across {len(valid_doc_names)} documents",
             "document_ids": [doc['doc_id'] for doc in artifact_names],
             "document_names": [doc['pdf_artifact'] for doc in artifact_names],
             "analysis_input_artifact": analysis_input_name,
-            "output_file": output_file,
-            "topics": unique_topics
+            "topics": common_topics
         }
-        
-        logger.info(f"Analysis results saved to: {os.path.abspath(output_file)}" if output_file else "Failed to save analysis results to file")
+        logger.info(f"Completed analysis with {len(common_topics)} topics")
         return response
-        
+
     except Exception as e:
         logger.error(f"Error in {task_name}: {str(e)}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-# async def identify_common_topics(tool_context: ToolContext, document_ids: str) -> Dict:
+        return {"status": "error", "message": str(e)}# async def identify_common_topics(tool_context: ToolContext, document_ids: str) -> Dict:
 #     """
 #     Identify common topics across multiple research papers.
 
@@ -1531,7 +1489,5 @@ async def main():
     # # Perform a specific type of comparison
     # compare_papers("methodology", runner, session)
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
     import asyncio
     asyncio.run(main())
