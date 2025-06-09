@@ -1,4 +1,4 @@
 # Initialize the ingestion agent package
-from .agent import ingestion_agent
+from .agent import SequentialIngestionAgent
 
-__all__ = ['ingestion_agent']
+__all__ = ['SequentialIngestionAgent']

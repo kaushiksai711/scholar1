@@ -3,3 +3,4 @@ poetry.lock
 docs/
 example/
 examples/
+.env

@@ -1,6 +1,8 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 from google.adk.tools.tool_context import ToolContext
+from google.adk.artifacts.base_artifact_service import BaseArtifactService
+from .models import DocumentRequest, DocumentResponse
 
 def analyze_document_complexity(tool_context: ToolContext, document_content: str) -> Dict[str, Any]:
     """
@@ -269,63 +271,3 @@ def evaluate_agent_performance(tool_context: ToolContext,
         'agent': agent_name,
         'metrics': agent_metrics
     }
-
-def process_user_feedback(tool_context: ToolContext, 
-                         feedback: str, 
-                         rating: int,
-                         context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Processes user feedback and updates agent behavior accordingly.
-    
-    Args:
-        tool_context: The context containing state and other utilities
-        feedback: User's feedback text
-        rating: Numeric rating (e.g., 1-5)
-        context: Additional context about the feedback
-        
-    Returns:
-        Dict containing processing status and any updates made
-    """
-    # Initialize feedback tracking if needed
-    if 'user_feedback' not in tool_context.state:
-        tool_context.state['user_feedback'] = []
-    
-    # Create feedback entry
-    feedback_entry = {
-        'timestamp': datetime.now().isoformat(),
-        'feedback': feedback,
-        'rating': rating,
-        'context': context
-    }
-    
-    # Store feedback
-    tool_context.state['user_feedback'].append(feedback_entry)
-    
-    # Update user preferences based on feedback (if applicable)
-    if 'user_preferences' not in tool_context.state:
-        tool_context.state['user_preferences'] = {}
-    
-    # Example: If feedback mentions analysis depth, update preferences
-    if 'analysis depth' in feedback.lower():
-        if 'deeper' in feedback.lower() or 'more detailed' in feedback.lower():
-            tool_context.state['user_preferences']['analysis_depth'] = 'advanced'
-        elif 'simpler' in feedback.lower() or 'less detailed' in feedback.lower():
-            tool_context.state['user_preferences']['analysis_depth'] = 'basic'
-    
-    # Log this interaction
-    tool_context.state['interaction_history'].append({
-        'action': 'user_feedback_received',
-        'timestamp': datetime.now().isoformat(),
-        'details': {
-            'rating': rating,
-            'feedback_type': 'explicit',
-            'preferences_updated': 'analysis_depth' in feedback.lower()
-        }
-    })
-    
-    return {
-        'status': 'success',
-        'feedback_processed': True,
-        'preferences_updated': tool_context.state.get('user_preferences', {})
-    }
-
