@@ -19,11 +19,11 @@ nltk.download('wordnet', quiet=True)
 
 
 
-
+import spacy
 import os
 import json
 import logging
-from typing import Dict, List, Optional, Union,Any
+from typing import Dict, List, Optional, Union,Any,Tuple
 from pathlib import Path
 import PyPDF2
 from datetime import datetime
@@ -560,7 +560,7 @@ async def _process_documents_for_analysis(
         # Topic Modeling with LDA (with dynamic parameters)
         # Topic Modeling with LDA (further adjusted parameters)
         n_docs = len(valid_texts)
-        n_topics = min(5, n_docs)  # At most 5 topics, or one per document
+        n_topics = min(6, n_docs)  # At most 5 topics, or one per document
         min_df = 1  # Terms must appear in at least 1 document
         max_df = n_docs  # Terms can appear in all documents
 
@@ -645,7 +645,7 @@ async def _process_documents_for_analysis(
             if not common_topics:
                 common_topics = [{"topic": "Topic 1", "description": "No significant shared themes detected.", "keywords": []}]
 
-        # ... (rest of the function remains unchanged)
+
 
         # LLM Refinement (optional)
         # if common_topics and common_topics[0]["topic"] != "No common topics":
